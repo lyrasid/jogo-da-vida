@@ -45,7 +45,7 @@ body{
  transition:.12s;
 }
 
-.cell:hover{transform:scale(1.18)}
+.cell:hover{transform:scale(1.15)}
 
 /* TOOLTIP */
 
@@ -65,8 +65,8 @@ body{
 
 .tooltip img{
  width:100%;
- border-radius:6px;
  margin-top:6px;
+ border-radius:6px;
 }
 
 .tooltip.show{opacity:1}
@@ -82,7 +82,7 @@ body{
 
 input,select,button{
  padding:8px;
- margin:5px;
+ margin:4px;
  font-size:14px;
  width:90%;
  max-width:260px;
@@ -90,18 +90,12 @@ input,select,button{
 
 .cat-item{
  font-size:12px;
+ margin:2px;
 }
 
 /* MOBILE */
 
 @media(max-width:700px){
-
- body{padding:10px}
-
- .grid{
-  gap:3px;
- }
-
  .panel{
   position:fixed;
   bottom:0;
@@ -109,7 +103,7 @@ input,select,button{
   right:0;
   background:var(--bg);
   border-top:2px solid #ccc;
-  max-height:50vh;
+  max-height:55vh;
   overflow:auto;
  }
 }
@@ -124,8 +118,8 @@ input,select,button{
 <div class="tooltip" id="tooltip"></div>
 
 <input type="password" id="pass" placeholder="senha">
-<button onclick="login()">Entrar</button>
-<button onclick="toggleDark()">🌙</button>
+<button id="loginBtn">Entrar</button>
+<button id="darkBtn">🌙</button>
 
 <div class="panel" id="panel">
 
@@ -137,27 +131,33 @@ input,select,button{
 <input type="file" id="photo" accept="image/*">
 
 <select id="cat"></select>
-
-<button onclick="addEvent()">Salvar / Remover</button>
+<button id="saveEventBtn">Salvar / Remover</button>
 
 <hr>
 
 <h3>Categoria</h3>
+
 <input id="catName" placeholder="Nome">
-<input type="color" id="catColor">
-<button onclick="addCategory()">Adicionar</button>
+<input type="color" id="catColor" value="#4A5568">
+<button id="addCatBtn">Adicionar</button>
+
+<div id="catList"></div>
 
 <hr>
 
-<button onclick="exportJSON()">⬇ Backup</button>
-<button onclick="importJSON()">⬆ Importar</button>
+<button id="exportBtn">⬇ Backup</button>
+<input type="file" id="importInput" style="display:none">
+<button id="importBtn">⬆ Importar</button>
 
 </div>
 
 <script>
 
-/* CONFIG */
+/* ========= CONFIG ========= */
+
 const PASSWORD="1234";
+
+/* ========================== */
 
 const startYear=2015;
 const years=12;
@@ -171,16 +171,44 @@ let categories={
 
 let events=JSON.parse(localStorage.getItem("lifeEvents")||"{}");
 
+/* ELEMENTOS */
+
 const grid=document.getElementById("grid");
 const tooltip=document.getElementById("tooltip");
 
+const panel=document.getElementById("panel");
+const passInput=document.getElementById("pass");
+
+const yearInput=document.getElementById("year");
+const monthInput=document.getElementById("month");
+const noteInput=document.getElementById("note");
+const photoInput=document.getElementById("photo");
+
+const catSelect=document.getElementById("cat");
+const catNameInput=document.getElementById("catName");
+const catColorInput=document.getElementById("catColor");
+
+const loginBtn=document.getElementById("loginBtn");
+const darkBtn=document.getElementById("darkBtn");
+const saveEventBtn=document.getElementById("saveEventBtn");
+const addCatBtn=document.getElementById("addCatBtn");
+const exportBtn=document.getElementById("exportBtn");
+const importBtn=document.getElementById("importBtn");
+const importInput=document.getElementById("importInput");
+
 /* LOGIN */
 
-function login(){
- if(pass.value===PASSWORD){
+loginBtn.onclick=()=>{
+ if(passInput.value===PASSWORD){
   panel.style.display="block";
- }
-}
+ } else alert("Senha incorreta");
+};
+
+/* DARK */
+
+darkBtn.onclick=()=>{
+ document.body.classList.toggle("dark");
+};
 
 /* GRID */
 
@@ -189,6 +217,7 @@ function build(){
  grid.innerHTML="";
 
  for(let y=0;y<years;y++){
+
   const year=startYear+y;
 
   for(let m=0;m<12;m++){
@@ -202,15 +231,16 @@ function build(){
 
    if(events[id]){
     cell.style.background=categories[events[id].cat];
-    label+=` — ${events[id].note}`;
+    label+=" — "+events[id].note;
    }
 
    cell.onclick=()=>{
     yearInput.value=year;
     monthInput.value=m;
-   }
+    noteInput.value=events[id]?.note||"";
+   };
 
-   cell.onmouseenter=()=>show(id,label);
+   cell.onmouseenter=()=>showTooltip(id,label);
    cell.onmouseleave=()=>tooltip.classList.remove("show");
 
    grid.appendChild(cell);
@@ -220,8 +250,7 @@ function build(){
 
 /* TOOLTIP */
 
-function show(id,text){
-
+function showTooltip(id,text){
  tooltip.innerHTML=text;
 
  if(events[id]?.photo){
@@ -233,33 +262,31 @@ function show(id,text){
 
 /* EVENTOS */
 
-function addEvent(){
+saveEventBtn.onclick=()=>{
 
- const id=year.value+"-"+month.value;
+ const id=yearInput.value+"-"+monthInput.value;
 
- if(!note.value){
+ if(!noteInput.value){
   delete events[id];
- } else {
+  saveLocal();
+  build();
+  return;
+ }
 
+ if(photoInput.files[0]){
   const reader=new FileReader();
-
   reader.onload=()=>{
-   events[id]={
-    cat:cat.value,
-    note:note.value,
-    photo:reader.result || events[id]?.photo
-   };
+   events[id]={cat:catSelect.value,note:noteInput.value,photo:reader.result};
    saveLocal();
    build();
-  }
-
-  if(photo.files[0]) reader.readAsDataURL(photo.files[0]);
-  else{
-   events[id]={cat:cat.value,note:note.value};
-   saveLocal();
-   build();
-  }
-}
+  };
+  reader.readAsDataURL(photoInput.files[0]);
+ }else{
+  events[id]={cat:catSelect.value,note:noteInput.value};
+  saveLocal();
+  build();
+ }
+};
 
 function saveLocal(){
  localStorage.setItem("lifeEvents",JSON.stringify(events));
@@ -267,51 +294,44 @@ function saveLocal(){
 
 /* CATEGORIAS */
 
-function addCategory(){
- categories[catName.value]=catColor.value;
+addCatBtn.onclick=()=>{
+ categories[catNameInput.value]=catColorInput.value;
  renderCats();
-}
+};
 
 function renderCats(){
- cat.innerHTML="";
- for(let c in categories){
-  cat.innerHTML+=`<option>${c}</option>`;
+ catSelect.innerHTML="";
+ for(const c in categories){
+  const opt=document.createElement("option");
+  opt.textContent=c;
+  catSelect.appendChild(opt);
  }
-}
-
-/* DARK */
-
-function toggleDark(){
- document.body.classList.toggle("dark");
 }
 
 /* BACKUP */
 
-function exportJSON(){
+exportBtn.onclick=()=>{
  const blob=new Blob([JSON.stringify({categories,events},null,2)]);
  const a=document.createElement("a");
  a.href=URL.createObjectURL(blob);
  a.download="backup.json";
  a.click();
-}
+};
 
-function importJSON(){
- const input=document.createElement("input");
- input.type="file";
- input.onchange=e=>{
-  const r=new FileReader();
-  r.onload=()=>{
-   const j=JSON.parse(r.result);
-   categories=j.categories;
-   events=j.events;
-   saveLocal();
-   renderCats();
-   build();
-  }
-  r.readAsText(e.target.files[0]);
+importBtn.onclick=()=>importInput.click();
+
+importInput.onchange=e=>{
+ const reader=new FileReader();
+ reader.onload=()=>{
+  const j=JSON.parse(reader.result);
+  categories=j.categories;
+  events=j.events;
+  saveLocal();
+  renderCats();
+  build();
  };
- input.click();
-}
+ reader.readAsText(e.target.files[0]);
+};
 
 /* INIT */
 
