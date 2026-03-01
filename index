@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<title>Minha Life Grid</title>
+
+<style>
+:root {
+  --work:#4A5568;
+  --health:#48BB78;
+  --travel:#4299E1;
+  --hobbies:#ECC94B;
+  --empty:#EDECEC;
+}
+
+/* ---------- BASE ---------- */
+
+body{
+  font-family: system-ui, -apple-system, sans-serif;
+  margin:0;
+  padding:32px 16px 60px;
+  background:#fff;
+  color:#222;
+  text-align:center;
+}
+
+h1{
+  font-weight:600;
+  font-size:22px;
+  margin-bottom:24px;
+}
+
+/* ---------- LEGEND + FILTERS ---------- */
+
+.legend{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:14px;
+  margin-bottom:18px;
+  font-size:13px;
+}
+
+.filter{
+  cursor:pointer;
+  padding:4px 8px;
+  border-radius:6px;
+  transition:.15s;
+}
+
+.filter:hover{
+  background:#f3f3f3;
+}
+
+.dot{
+  width:10px;
+  height:10px;
+  display:inline-block;
+  border-radius:2px;
+  margin-right:6px;
+}
+
+.work{background:var(--work)}
+.health{background:var(--health)}
+.travel{background:var(--travel)}
+.hobbies{background:var(--hobbies)}
+
+/* ---------- YEARS HEADER ---------- */
+
+.years{
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  max-width:900px;
+  margin:0 auto 8px;
+  font-size:11px;
+  color:#888;
+}
+
+.year-label{
+  grid-column:span 12;
+  text-align:left;
+  padding-left:4px;
+  margin-bottom:6px;
+}
+
+/* ---------- GRID ---------- */
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(12,minmax(14px,1fr));
+  gap:4px;
+  max-width:900px;
+  margin:0 auto;
+}
+
+.cell{
+  aspect-ratio:1;
+  background:var(--empty);
+  border-radius:3px;
+  position:relative;
+  transition:transform .12s ease, opacity .2s ease;
+}
+
+.cell:hover{
+  transform:scale(1.15);
+  z-index:5;
+}
+
+/* separador visual de ano */
+.cell:nth-child(12n+1){
+  box-shadow:-3px 0 0 #ddd;
+}
+
+/* ---------- TOOLTIP ---------- */
+
+.tooltip{
+  position:fixed;
+  bottom:18px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#222;
+  color:#fff;
+  font-size:12px;
+  padding:6px 10px;
+  border-radius:6px;
+  opacity:0;
+  pointer-events:none;
+  transition:.15s;
+}
+
+.tooltip.show{
+  opacity:1;
+}
+
+/* ---------- MOBILE ---------- */
+
+@media(max-width:600px){
+  .grid{
+    gap:3px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<h1>Minha Linha do Tempo</h1>
+
+<!-- filtros -->
+<div class="legend">
+  <span class="filter" data-filter="all">Todos</span>
+  <span class="filter"><span class="dot work"></span>Trabalho</span>
+  <span class="filter"><span class="dot health"></span>Saúde</span>
+  <span class="filter"><span class="dot travel"></span>Viagens</span>
+  <span class="filter"><span class="dot hobbies"></span>Hobbies</span>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+
+/* ======================
+   DADOS (edite só aqui)
+====================== */
+
+const data = {
+ "2018-0": {categoryId:"work", note:"Primeiro emprego"},
+ "2019-4": {categoryId:"health", note:"Comecei musculação"},
+ "2020-11":{categoryId:"travel", note:"Viagem marcante"},
+ "2021-6": {categoryId:"hobbies", note:"Aprendi teclado"},
+ "2026-1": {categoryId:"health", note:"Nova rotina fitness"}
+};
+
+/* ====================== */
+
+const colors = {
+ work:"var(--work)",
+ health:"var(--health)",
+ travel:"var(--travel)",
+ hobbies:"var(--hobbies)"
+};
+
+const startYear = 2015;
+const years = 12;
+const months = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+const grid = document.getElementById("grid");
+const tooltip = document.getElementById("tooltip");
+
+const fragment = document.createDocumentFragment();
+
+for(let y=0;y<years;y++){
+  const year = startYear + y;
+
+  for(let m=0;m<12;m++){
+    const id = year+"-"+m;
+
+    const cell = document.createElement("div");
+    cell.className = "cell";
+
+    let label = months[m]+" "+year;
+
+    if(data[id]){
+      cell.style.background = colors[data[id].categoryId];
+      cell.dataset.category = data[id].categoryId;
+
+      if(data[id].note){
+        label += " — " + data[id].note;
+      }
+    }
+
+    cell.addEventListener("mouseenter",()=>{
+      tooltip.textContent = label;
+      tooltip.classList.add("show");
+    });
+
+    cell.addEventListener("mouseleave",()=>{
+      tooltip.classList.remove("show");
+    });
+
+    fragment.appendChild(cell);
+  }
+}
+
+grid.appendChild(fragment);
+
+
+/* ======================
+   FILTROS
+====================== */
+
+document.querySelectorAll(".filter").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+
+    const text = btn.textContent.toLowerCase();
+    const filter = text.includes("todos") ? "all" :
+                   text.includes("trabalho") ? "work" :
+                   text.includes("saúde") ? "health" :
+                   text.includes("viagens") ? "travel" :
+                   "hobbies";
+
+    document.querySelectorAll(".cell").forEach(c=>{
+      if(filter==="all" || c.dataset.category===filter){
+        c.style.opacity=1;
+      } else {
+        c.style.opacity=.15;
+      }
+    });
+  });
+});
+
+</script>
+
+</body>
+</html>
