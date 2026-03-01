@@ -6,27 +6,32 @@
 
 <style>
 :root{
- --work:#4A5568;
- --health:#48BB78;
- --travel:#4299E1;
- --hobbies:#ECC94B;
+ --bg:#fff;
+ --text:#222;
  --empty:#EDECEC;
+}
+
+body.dark{
+ --bg:#111;
+ --text:#eee;
+ --empty:#2a2a2a;
 }
 
 body{
  font-family:system-ui;
- background:#fff;
- padding:30px;
+ background:var(--bg);
+ color:var(--text);
+ margin:0;
+ padding:20px;
  text-align:center;
+ transition:.2s;
 }
-
-h1{font-size:22px;margin-bottom:20px}
 
 /* GRID */
 
 .grid{
  display:grid;
- grid-template-columns:repeat(12,minmax(14px,1fr));
+ grid-template-columns:repeat(12,1fr);
  gap:4px;
  max-width:900px;
  margin:0 auto;
@@ -35,31 +40,33 @@ h1{font-size:22px;margin-bottom:20px}
 .cell{
  aspect-ratio:1;
  background:var(--empty);
- border-radius:3px;
- transition:.12s;
+ border-radius:4px;
  cursor:pointer;
+ transition:.12s;
 }
 
-.cell:hover{transform:scale(1.15)}
-
-.work{background:var(--work)}
-.health{background:var(--health)}
-.travel{background:var(--travel)}
-.hobbies{background:var(--hobbies)}
+.cell:hover{transform:scale(1.18)}
 
 /* TOOLTIP */
 
 .tooltip{
  position:fixed;
- bottom:20px;
+ bottom:15px;
  left:50%;
  transform:translateX(-50%);
  background:#222;
  color:#fff;
- padding:6px 10px;
- border-radius:6px;
+ padding:10px;
+ border-radius:8px;
  font-size:12px;
  opacity:0;
+ max-width:260px;
+}
+
+.tooltip img{
+ width:100%;
+ border-radius:6px;
+ margin-top:6px;
 }
 
 .tooltip.show{opacity:1}
@@ -67,121 +74,143 @@ h1{font-size:22px;margin-bottom:20px}
 /* PANEL */
 
 .panel{
- margin-top:40px;
+ margin-top:30px;
  display:none;
- border-top:1px solid #eee;
- padding-top:20px;
+ border-top:1px solid #ddd;
+ padding-top:15px;
 }
 
 input,select,button{
- padding:6px;
- margin:4px;
- font-size:13px;
+ padding:8px;
+ margin:5px;
+ font-size:14px;
+ width:90%;
+ max-width:260px;
 }
 
-button{
- cursor:pointer;
+.cat-item{
+ font-size:12px;
 }
 
-.login{
- margin-bottom:20px;
-}
+/* MOBILE */
 
+@media(max-width:700px){
+
+ body{padding:10px}
+
+ .grid{
+  gap:3px;
+ }
+
+ .panel{
+  position:fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  background:var(--bg);
+  border-top:2px solid #ccc;
+  max-height:50vh;
+  overflow:auto;
+ }
+}
 </style>
 </head>
+
 <body>
 
-<h1>Cartografia da Vida</h1>
+<h2>Cartografia da Vida</h2>
 
 <div class="grid" id="grid"></div>
 <div class="tooltip" id="tooltip"></div>
 
-<!-- LOGIN -->
-<div class="login">
- <input type="password" id="pass" placeholder="senha do editor">
- <button onclick="login()">Entrar</button>
-</div>
+<input type="password" id="pass" placeholder="senha">
+<button onclick="login()">Entrar</button>
+<button onclick="toggleDark()">🌙</button>
 
-<!-- PANEL -->
 <div class="panel" id="panel">
- <h3>Novo evento</h3>
 
- <input id="year" placeholder="Ano">
- <input id="month" placeholder="Mês 0-11">
- <input id="note" placeholder="Descrição">
+<h3>Evento</h3>
 
- <select id="cat">
-  <option value="work">Trabalho</option>
-  <option value="health">Saúde</option>
-  <option value="travel">Viagem</option>
-  <option value="hobbies">Hobby</option>
- </select>
+<input id="year" placeholder="Ano">
+<input id="month" placeholder="Mês 0-11">
+<input id="note" placeholder="Descrição">
+<input type="file" id="photo" accept="image/*">
 
- <button onclick="addEvent()">Adicionar</button>
- <button onclick="saveToGithub()">💾 Salvar no GitHub</button>
+<select id="cat"></select>
+
+<button onclick="addEvent()">Salvar / Remover</button>
+
+<hr>
+
+<h3>Categoria</h3>
+<input id="catName" placeholder="Nome">
+<input type="color" id="catColor">
+<button onclick="addCategory()">Adicionar</button>
+
+<hr>
+
+<button onclick="exportJSON()">⬇ Backup</button>
+<button onclick="importJSON()">⬆ Importar</button>
+
 </div>
 
 <script>
 
-/* ======================
-   CONFIGURE AQUI
-====================== */
+/* CONFIG */
+const PASSWORD="1234";
 
-const PASSWORD = "esqueci@123";  // troque
-const TOKEN = "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";
-const REPO = "lyrasid/vida";
-const FILE = "data.json";
+const startYear=2015;
+const years=12;
 
-/* ====================== */
+let categories={
+ Trabalho:"#4A5568",
+ Saúde:"#48BB78",
+ Viagem:"#4299E1",
+ Hobby:"#ECC94B"
+};
 
-const startYear = 2015;
-const years = 12;
-const months = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+let events=JSON.parse(localStorage.getItem("lifeEvents")||"{}");
 
-let data = {};
-
-const grid = document.getElementById("grid");
-const tooltip = document.getElementById("tooltip");
+const grid=document.getElementById("grid");
+const tooltip=document.getElementById("tooltip");
 
 /* LOGIN */
 
 function login(){
- if(document.getElementById("pass").value === PASSWORD){
-  document.getElementById("panel").style.display="block";
-  alert("Editor liberado");
- } else {
-  alert("Senha incorreta");
+ if(pass.value===PASSWORD){
+  panel.style.display="block";
  }
 }
 
-/* LOAD DATA */
-
-async function load(){
- const res = await fetch(FILE);
- data = await res.json();
- build();
-}
+/* GRID */
 
 function build(){
+
  grid.innerHTML="";
 
  for(let y=0;y<years;y++){
   const year=startYear+y;
 
   for(let m=0;m<12;m++){
+
    const id=year+"-"+m;
 
    const cell=document.createElement("div");
    cell.className="cell";
 
-   let label=months[m]+" "+year;
+   let label=`${m+1}/${year}`;
 
-   if(data[id]){
-    cell.classList.add(data[id].categoryId);
-    label+=" — "+data[id].note;
+   if(events[id]){
+    cell.style.background=categories[events[id].cat];
+    label+=` — ${events[id].note}`;
    }
 
-   cell.onmouseenter=()=>show(label);
+   cell.onclick=()=>{
+    yearInput.value=year;
+    monthInput.value=m;
+   }
+
+   cell.onmouseenter=()=>show(id,label);
    cell.onmouseleave=()=>tooltip.classList.remove("show");
 
    grid.appendChild(cell);
@@ -189,46 +218,105 @@ function build(){
  }
 }
 
-function show(text){
- tooltip.textContent=text;
+/* TOOLTIP */
+
+function show(id,text){
+
+ tooltip.innerHTML=text;
+
+ if(events[id]?.photo){
+  tooltip.innerHTML+=`<img src="${events[id].photo}">`;
+ }
+
  tooltip.classList.add("show");
 }
 
-/* ADD EVENT */
+/* EVENTOS */
 
 function addEvent(){
+
  const id=year.value+"-"+month.value;
- data[id]={categoryId:cat.value,note:note.value};
- build();
+
+ if(!note.value){
+  delete events[id];
+ } else {
+
+  const reader=new FileReader();
+
+  reader.onload=()=>{
+   events[id]={
+    cat:cat.value,
+    note:note.value,
+    photo:reader.result || events[id]?.photo
+   };
+   saveLocal();
+   build();
+  }
+
+  if(photo.files[0]) reader.readAsDataURL(photo.files[0]);
+  else{
+   events[id]={cat:cat.value,note:note.value};
+   saveLocal();
+   build();
+  }
 }
 
-/* SAVE TO GITHUB */
-
-async function saveToGithub(){
-
- const content=btoa(JSON.stringify(data,null,2));
-
- const file=await fetch(`https://api.github.com/repos/${REPO}/contents/${FILE}`,{
-  headers:{Authorization:`token ${TOKEN}`}
- }).then(r=>r.json());
-
- await fetch(`https://api.github.com/repos/${REPO}/contents/${FILE}`,{
-  method:"PUT",
-  headers:{
-   Authorization:`token ${TOKEN}`,
-   "Content-Type":"application/json"
-  },
-  body:JSON.stringify({
-   message:"update life grid",
-   content,
-   sha:file.sha
-  })
- });
-
- alert("Salvo! Atualiza em ~1 minuto");
+function saveLocal(){
+ localStorage.setItem("lifeEvents",JSON.stringify(events));
 }
 
-load();
+/* CATEGORIAS */
+
+function addCategory(){
+ categories[catName.value]=catColor.value;
+ renderCats();
+}
+
+function renderCats(){
+ cat.innerHTML="";
+ for(let c in categories){
+  cat.innerHTML+=`<option>${c}</option>`;
+ }
+}
+
+/* DARK */
+
+function toggleDark(){
+ document.body.classList.toggle("dark");
+}
+
+/* BACKUP */
+
+function exportJSON(){
+ const blob=new Blob([JSON.stringify({categories,events},null,2)]);
+ const a=document.createElement("a");
+ a.href=URL.createObjectURL(blob);
+ a.download="backup.json";
+ a.click();
+}
+
+function importJSON(){
+ const input=document.createElement("input");
+ input.type="file";
+ input.onchange=e=>{
+  const r=new FileReader();
+  r.onload=()=>{
+   const j=JSON.parse(r.result);
+   categories=j.categories;
+   events=j.events;
+   saveLocal();
+   renderCats();
+   build();
+  }
+  r.readAsText(e.target.files[0]);
+ };
+ input.click();
+}
+
+/* INIT */
+
+renderCats();
+build();
 
 </script>
 </body>
